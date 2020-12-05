@@ -1,0 +1,14 @@
+vizinho mais próximo:
+ 50,  0,  0
+  0, 43,  4
+  0,  7, 46
+
+centroides:
+ 50,  0,  0
+  0, 41, 10
+  0,  9, 40
+
+k-vizinhos mais próximos:
+ 50,  0,  0
+  0, 46,  4
+  0,  4, 46

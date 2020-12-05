@@ -1,15 +1,26 @@
 module Utils(
    toDouble,
    toInt,
+   fst3,
+   snd3,
+   thd3,
    pegaInfo,
    split,
    formataLinha,
    distanciaEuclediana,
    removeDup,
+   geraVetorValoresAleatorios,
    geraFolds,
    criaPonto,
    criaDataset,
    criaTodosDatasets,
+   calculaAcuraciaTodosFoldes,
+   retornaReais,
+   mediaMatriz,
+   desvioPadraoMatriz,
+   padronizar,
+   desvioPadraoAcuracias,
+   novoPonto,
    coordenadas,
    classe,
    teste,
@@ -20,15 +31,21 @@ module Utils(
 
 import System.Random (randomRs, mkStdGen)
 import System.IO
+import Data.List (transpose)
 
 
 data Ponto = Ponto [Double]  String deriving(Show)
 
+novoPonto :: [Double] -> String -> Ponto
+novoPonto [] _ = error "impossivel gerar ponto"
+novoPonto _ [] = error "impossivel gerar ponto"
+novoPonto coordenadas classe = Ponto coordenadas classe
+
 coordenadas :: Ponto -> [Double]
-coordenadas (Ponto coord classe) = coord
+coordenadas (Ponto coord _) = coord
 
 classe :: Ponto -> String
-classe (Ponto coord classe) = classe
+classe (Ponto _ classe) = classe
 
 
 data Dataset = Dataset {
@@ -59,6 +76,19 @@ toDouble = read
 -}
 toInt :: String -> Int
 toInt = read
+
+
+fst3 :: (a, b, c) -> a
+fst3 (a, _, _) = a
+
+
+snd3 :: (a, b, c) -> b
+snd3 (_, b, _) = b
+
+
+thd3 :: (a, b, c) -> c
+thd3 (_, _, c) = c
+
 
 {-
    Input: Uma String.
@@ -128,6 +158,16 @@ removeDup l = removeD l []
          | otherwise = x: removeD xs (x:ls)
 
 {-
+   Input: 3 inteiros.
+   Output: 1 vetor de inteiros.
+   
+   Acao: gera 1 vetor de valores aleatorios e unicos para selecionar esses pontos para
+         nosso dataset de teste. Esse vetor terá o tamanho que foi indicado para o dataset de teste. 
+-}
+geraVetorValoresAleatorios :: Int -> Int -> [Int]
+geraVetorValoresAleatorios seed tamanhoTotal = take (tamanhoTotal) (removeDup ((randomRs (0, tamanhoTotal - 1) (mkStdGen seed) :: [Int])))
+
+{-
 -}
 geraFolds :: Int -> [Int] -> [[Int]]
 geraFolds 0 _ = error "impossivel gerar foldes"
@@ -158,11 +198,80 @@ criaDataset foldes indicesLinhas pontos indiceTeste = Dataset {datasetTreino = t
       treino = [pontos !! y | y <- indicesLinhas, y `notElem` (foldes !! indiceTeste)]
 
 
-criaTodosDatasets :: [[Int]] -> [Int] -> [Ponto] -> Int -> [Dataset]
-criaTodosDatasets [] _ _ _= error "impossivel criar dataset"
-criaTodosDatasets _ [] _ _= error "impossivel criar dataset"
-criaTodosDatasets _ _ [] _= error "impossivel criar dataset"
-criaTodosDatasets foldes indicesLinhas pontos k = [criaDataset foldes indicesLinhas pontos x | x <- foldeDaVez]
+criaTodosDatasets :: [[Int]] -> [Int] -> [Ponto] -> [Dataset]
+criaTodosDatasets [] _ _ = error "impossivel criar dataset"
+criaTodosDatasets _ [] _ = error "impossivel criar dataset"
+criaTodosDatasets _ _ [] = error "impossivel criar dataset"
+criaTodosDatasets foldes indicesLinhas pontos = [criaDataset foldes indicesLinhas pontos x | x <- foldeDaVez]
    where
-      foldeDaVez = [0..k - 1]
+      qtdFoldes = length foldes
+      foldeDaVez = [0..qtdFoldes - 1]
+
+
+{-
+   Input: 2 vetores de strings.
+   Output: 1 Double.
    
+   Acao: Compara os dois vetores de strings e cada vez que, na mesma posicao, as informacoes
+         forem iguais conta um acerto. Dividimos o numero de acertos pelo tamanho do vetor
+         e temos nossa acuracia.
+-}
+calculaAcuracia :: [String] -> [String] -> Double
+calculaAcuracia [] _ = error "impossivel calcular acuracia"
+calculaAcuracia _ [] = error "impossivel calcular acuracia"
+calculaAcuracia predicoes reais  = (calculaQuantidadeCorretos predicoes reais) / fromIntegral (length reais)
+   where
+      calculaQuantidadeCorretos _ [] = 0
+      calculaQuantidadeCorretos [] _ = 0
+      calculaQuantidadeCorretos (p:predicoes) (r:reais)
+         | p == r = 1 + calculaQuantidadeCorretos predicoes reais
+         | otherwise = 0 + calculaQuantidadeCorretos predicoes reais
+
+
+calculaAcuraciaTodosFoldes :: [[String]] -> [[String]] -> [Double]
+calculaAcuraciaTodosFoldes predicoes reais = [calculaAcuracia p r | (p, r) <- zip predicoes reais]
+
+retornaReais :: [[Ponto]] -> [[String]]
+retornaReais pontos = [retornaClasses ponto | ponto <- pontos]
+   where
+      retornaClasses ponto = [classe x | x <- ponto]
+
+
+mediaMatriz :: Dataset -> [Double]
+mediaMatriz dataset = [sum x / fromIntegral(length x) | x <- transposta]
+   where
+      matriz = [coordenadas vetor | vetor <- treino dataset]
+      transposta = transpose matriz
+
+
+desvioPadraoMatriz :: Dataset -> [Double]
+desvioPadraoMatriz dataset = [resultado x m | (x, m) <- zip transposta media]
+   where
+      matriz = [coordenadas vetor | vetor <- treino dataset]
+      transposta = transpose matriz
+      media = mediaMatriz dataset
+      tamanho x = fromIntegral (length (treino dataset))
+      menosMedia x m = map ((-) m) x
+      quadrado x = sum (map (^2) x)
+      dividido x = x / tamanho x
+      resultado x m = sqrt (dividido (quadrado (menosMedia x m)))
+
+
+padronizar :: Dataset -> Dataset
+padronizar dataset = Dataset treinoPadronizado testePadronizado 
+   where
+      media = mediaMatriz dataset
+      desvio = desvioPadraoMatriz dataset
+      padroniza x = zipWith (/) (zipWith (-) x media) desvio
+      treinoPadronizado = [Ponto (padroniza (coordenadas x)) (classe x) | x <- treino dataset]
+      testePadronizado = [Ponto (padroniza (coordenadas x)) (classe x) | x <- teste dataset]
+
+
+desvioPadraoAcuracias :: [Double] -> Double
+desvioPadraoAcuracias acuracias = sqrt (dividido (quadrado (menosMedia acuracias)))
+   where
+      tamanho = fromIntegral (length acuracias)
+      mediaAcuracias = (sum acuracias) / tamanho
+      menosMedia x = map ((-) mediaAcuracias) x
+      quadrado x = sum (map (^2) x)
+      dividido x = x / tamanho
