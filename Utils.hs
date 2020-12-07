@@ -20,7 +20,6 @@ module Utils(
    desvioPadraoMatriz,
    padronizar,
    desvioPadraoAcuracias,
-   novoPonto,
    coordenadas,
    classe,
    teste,
@@ -33,29 +32,39 @@ import System.Random (randomRs, mkStdGen)
 import System.IO
 import Data.List (transpose)
 
-
+{-
+   Tipo criado que representa um ponto e ele contém um vetor de Doubles representando as coordenadas 
+   e uma String que representa qual classe ele faz parte.
+-}
 data Ponto = Ponto [Double]  String deriving(Show)
 
-novoPonto :: [Double] -> String -> Ponto
-novoPonto [] _ = error "impossivel gerar ponto"
-novoPonto _ [] = error "impossivel gerar ponto"
-novoPonto coordenadas classe = Ponto coordenadas classe
-
+{-
+   Retorna o vetor de Doubles que representa as coordenadas do ponto.
+-}
 coordenadas :: Ponto -> [Double]
 coordenadas (Ponto coord _) = coord
 
+{-
+   Retorna a classe que ponto carrega.
+-}
 classe :: Ponto -> String
 classe (Ponto _ classe) = classe
 
 
+{-
+   Tipo que representa uma dataset e contem dois vetores de Pontos representando os pontos de treio
+   e os de teste.
+-}
 data Dataset = Dataset {
    datasetTreino :: [Ponto],   
    datasetTeste :: [Ponto]
 } deriving(Show)
 
+--Retorna o dataset de teste.
 teste :: Dataset -> [Ponto]
 teste =  datasetTeste
 
+--Retorna o dataset de treino.
 treino :: Dataset -> [Ponto]
 treino =  datasetTreino
 
@@ -77,15 +86,23 @@ toDouble = read
 toInt :: String -> Int
 toInt = read
 
-
+{-
+   retorna a primeira posicao para um tupla de 3 elementos
+-}
 fst3 :: (a, b, c) -> a
 fst3 (a, _, _) = a
 
 
+{-
+   retorna a segunda posicao para um tupla de 3 elementos
+-}
 snd3 :: (a, b, c) -> b
 snd3 (_, b, _) = b
 
 
+{-
+   retorna a terceira posicao para um tupla de 3 elementos
+-}
 thd3 :: (a, b, c) -> c
 thd3 (_, _, c) = c
 
@@ -167,7 +184,9 @@ removeDup l = removeD l []
 geraVetorValoresAleatorios :: Int -> Int -> [Int]
 geraVetorValoresAleatorios seed tamanhoTotal = take (tamanhoTotal) (removeDup ((randomRs (0, tamanhoTotal - 1) (mkStdGen seed) :: [Int])))
 
+
 {-
+   gera um vetor de vetores de inteiros que representam os indices dos dados que cada folde representa.  
 -}
 geraFolds :: Int -> [Int] -> [[Int]]
 geraFolds 0 _ = error "impossivel gerar foldes"
@@ -182,12 +201,20 @@ geraFolds k aleatorios = foldesFinais foldsIniciais (tamanho * k)
          | otherwise = [folde] ++ foldesFinais foldes (ind + 1)
 
 
+{-
+   Recebe um vetor de string e esse vetor representa uma linha do arquivo csv.
+   Esse funcao pega essa linha e transforma ela em um ponto.
+-}
 criaPonto :: [String] -> Ponto
 criaPonto [] = error "impossivel criar pontos"
 criaPonto linha = Ponto (fst resultado) (snd resultado)
     where
         resultado = formataLinha linha
 
+{-
+   Pega um vetor de Pontos e os indices que sao para teste transforma ele em um dataset
+   jogando os pontos que sao de teste para o dataset de teste e os outros pro de treino.
+-}
 criaDataset :: [[Int]] -> [Int] -> [Ponto] -> Int -> Dataset
 criaDataset [] _ _ _= error "impossivel criar dataset"
 criaDataset _ [] _ _= error "impossivel criar dataset"
@@ -198,6 +225,9 @@ criaDataset foldes indicesLinhas pontos indiceTeste = Dataset {datasetTreino = t
       treino = [pontos !! y | y <- indicesLinhas, y `notElem` (foldes !! indiceTeste)]
 
 
+{-
+   Aplica a funcao criaDataset para todos os folds retornando um vetor de datasets.
+-}
 criaTodosDatasets :: [[Int]] -> [Int] -> [Ponto] -> [Dataset]
 criaTodosDatasets [] _ _ = error "impossivel criar dataset"
 criaTodosDatasets _ [] _ = error "impossivel criar dataset"
@@ -228,15 +258,24 @@ calculaAcuracia predicoes reais  = (calculaQuantidadeCorretos predicoes reais) /
          | otherwise = 0 + calculaQuantidadeCorretos predicoes reais
 
 
+{-
+   Aplica a funcao calculaAcuracia para todos os folds.
+-}
 calculaAcuraciaTodosFoldes :: [[String]] -> [[String]] -> [Double]
 calculaAcuraciaTodosFoldes predicoes reais = [calculaAcuracia p r | (p, r) <- zip predicoes reais]
 
+{-
+   retorna as classes reias dos pontos para que possamos, mais tarde, saber de a predicao foi correta.
+-}
 retornaReais :: [[Ponto]] -> [[String]]
 retornaReais pontos = [retornaClasses ponto | ponto <- pontos]
    where
       retornaClasses ponto = [classe x | x <- ponto]
 
-
+{-
+   pega as coordenadas dos pontos do dataset de treino e transforma em uma matriz, assim
+   calcula a media de cada coordenada da matriz, ou seja, calcula a media de cada coluna.
+-}
 mediaMatriz :: Dataset -> [Double]
 mediaMatriz dataset = [sum x / fromIntegral(length x) | x <- transposta]
    where
@@ -244,6 +283,9 @@ mediaMatriz dataset = [sum x / fromIntegral(length x) | x <- transposta]
       transposta = transpose matriz
 
 
+{-
+   Novamente transforma os pontos em uma matriz e calcula o desvio padrão.
+-}
 desvioPadraoMatriz :: Dataset -> [Double]
 desvioPadraoMatriz dataset = [resultado x m | (x, m) <- zip transposta media]
    where
@@ -257,6 +299,11 @@ desvioPadraoMatriz dataset = [resultado x m | (x, m) <- zip transposta media]
       resultado x m = sqrt (dividido (quadrado (menosMedia x m)))
 
 
+{-
+   Funcao que aplica a padronizacao de uma dataset, ou seja, aplica a formula z = (x - u)/desvio
+   onde z é o novo valor para a coordenada, x eh a coordenada avaliada, u eh a media dos valores padronizdos
+   e desvio eh o desvio padrao dos valores padronizados.
+-}
 padronizar :: Dataset -> Dataset
 padronizar dataset = Dataset treinoPadronizado testePadronizado 
    where
@@ -267,6 +314,10 @@ padronizar dataset = Dataset treinoPadronizado testePadronizado
       testePadronizado = [Ponto (padroniza (coordenadas x)) (classe x) | x <- teste dataset]
 
 
+{-
+   Recebe um lista contendo as acuracias para cada folde e retorna o desvio padrao
+   dessas acuracias.
+-}
 desvioPadraoAcuracias :: [Double] -> Double
 desvioPadraoAcuracias acuracias = sqrt (dividido (quadrado (menosMedia acuracias)))
    where

@@ -16,7 +16,7 @@ import Data.List (intercalate, sortBy, minimumBy)
 import Data.Ord (comparing) 
 
 {-
-   Input: 1 tipo Dataset.
+   Input: 1 vetor de Pontos.
    Output: 1 vetor de strings.
    
    Acao: Percorre o dataset inteiro pegando apenas as classes e deixando as coordenadas de lado.
@@ -51,6 +51,10 @@ retornaPontosDaClasseTeste :: Dataset -> String -> [[Double]]
 retornaPontosDaClasseTeste dataset classeRequerida = [coordenadas dado | dado <- teste dataset,  classe dado == classeRequerida]
 
 
+{-
+    Essa funcao recebe um Dataset, um Ponto e um inteiro. Ela ira passar pelo Dataset retornando os k
+    Pontos do Dataset com a menor distancia para o Ponto.
+-}
 retornaVizinhos :: Dataset -> Ponto -> Int -> [(Double, String)]
 retornaVizinhos dataset ponto k = selecionaVizinhos [(distanciaEuclediana (coordenadas pontoAux) (coordenadas ponto), classe pontoAux) 
                                                 | pontoAux <- datasetTreino]
@@ -59,6 +63,10 @@ retornaVizinhos dataset ponto k = selecionaVizinhos [(distanciaEuclediana (coord
         selecionaVizinhos vetor =  take k (sortBy (comparing fst) vetor)
 
 
+{-
+    Essa funcao recebe um vetor contendo os vizinhos selecionados e retorna a contagem
+    de quantas vezes cada classe aparece
+-}
 contaVizinhos :: [(Double, String)] -> [(Int, Double, String)]
 contaVizinhos vizinhos = [(percorre x, calculaMedia $ somaLista x, x) | x <- removeDup $ map snd vizinhos]
     where
@@ -67,6 +75,11 @@ contaVizinhos vizinhos = [(percorre x, calculaMedia $ somaLista x, x) | x <- rem
         calculaMedia lista = sum lista / fromIntegral(length lista)
 
 
+{-
+    Esse funcao recebe a contagem dos vizinhos e decide qual sera o vizinho mais proximo
+    com base na quantidade de vezes que cada classe aparece, e caso tenha quantidade de aparicoes iguais
+    compara as distancias para decidir.
+-}
 selecionaVizinho :: [(Int, Double, String)] -> String
 selecionaVizinho [] = error "impossivel selecionar vizinho"
 selecionaVizinho vizinhosAparicoes
@@ -80,12 +93,17 @@ selecionaVizinho vizinhosAparicoes
             | otherwise = acc
 
 
+{-
+    roda o knn que eh basicamente usar as funcoes retornaVizinhos, contaVizinhos e selecionaVizinho.
+-}
 knn :: Dataset -> Int -> Ponto -> String
 knn dataset k ponto = selecionaVizinho (contaVizinhos vizinhosAparicoes)
     where
         vizinhosAparicoes = retornaVizinhos dataset ponto k
 
-
+{-
+    Aplica o knn para todos os pontos do dataset de teste.
+-}
 aplicaKNNpara1Folde :: Int -> Dataset-> [String]
 aplicaKNNpara1Folde k dataset = map (knn dataset k) datasetTeste 
     where
@@ -129,6 +147,9 @@ centroides :: Dataset -> [String] ->  [([Double], String)]
 centroides dataset classes = [(calculaCentroide (retornaPontosDaClasse dataset classe) 1, classe) | classe <- classes]
 
 
+{-
+    Aplica a funcao centroides para todos os foldes
+-}
 centroidesParaFoldes :: [Dataset] -> [[([Double], String)]]
 centroidesParaFoldes datasets = [resultado dado | dado <- datasets]
     where
@@ -159,7 +180,9 @@ todasPredicoes :: [([Double], String)] -> Dataset -> [String]
 todasPredicoes pontos dataset = map (predicao pontos) (teste dataset)
 
 
-
+{-
+    aplica a predicao para todos os foldes.
+-}
 predicoesPraFolde :: [[([Double], String)]] -> [Dataset] -> [[String]]
 predicoesPraFolde centroides dataset = [todasPredicoes x y | (x, y) <- zip centroides dataset]
 
@@ -193,10 +216,16 @@ geraMatrizConfusao predicoes verdadeiros classes =
         transposta matriz =  (map head matriz) : transposta (map tail matriz)
 
 
+{-
+    gera a matriz de confusao para todos os folds.
+-}
 geraMatrizConfusaoFolde :: [[String]] -> [[String]] -> [String] ->[[[Int]]]
 geraMatrizConfusaoFolde predicoes reais classes = [geraMatrizConfusao p r classes | (p, r) <- zip predicoes reais]
 
 
+{-
+    Soma todas as matrizes presentes em um vetor de matrizes
+-}
 somaMatrizes :: [[[Int]]] -> [[Int]]
 somaMatrizes [m] = m
 somaMatrizes (a:b:matrizes) = somaMatrizes (soma2 a b : matrizes)
